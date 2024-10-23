@@ -28,6 +28,8 @@
     "compile": "rimraf ./lib && tsc && yarn rollup",
     "rollup": "rollup -c",
     "jest": "jest --watch --coverage",
+    "jest:update": "jest --updateSnapshot",
+    "testDev:custom": "NODE_ENV=development jest temp.test.ts --coverage && mv .nyc_output/coverage-final.json .nyc_tmp/coverage-dev.json && rm -rf .nyc_output",
     "test": "yarn lint && yarn testCovFull",
     "testCovFull": "yarn testCovPrepare && yarn testDev && yarn testCovReport",
     "testCovPrepare": "rm -rf ./coverage .nyc_output .nyc_tmp && mkdir .nyc_tmp",
