@@ -169,6 +169,8 @@ export type Context = {
   pendingLinkNode?: NonTextNode;
   linkId: number;
   links: Links;
+  pendingBookmarkNodeSet?: NonTextNode[];
+  bookmarkId: number;
   pendingHtmlNode?: TextNode | NonTextNode;
   htmlId: number;
   htmls: Htmls;
@@ -265,6 +267,11 @@ export type LinkPars = {
   label?: string;
 };
 
+export type BookmarkPars = {
+  name: string;
+  label: string;
+};
+
 export type CommandSummary = {
   raw: string;
   type: BuiltInCommand;
@@ -285,5 +292,6 @@ export const BUILT_IN_COMMANDS = [
   'EXEC',
   'IMAGE',
   'LINK',
+  'BOOKMARK',
   'HTML',
 ] as const;

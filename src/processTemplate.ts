@@ -23,6 +23,7 @@ import {
   BUILT_IN_COMMANDS,
   ImageExtensions,
   NonTextNode,
+  BookmarkPars,
 } from './types';
 import {
   isError,
@@ -56,6 +57,7 @@ export function newContext(
     images: {},
     linkId: 0,
     links: {},
+    bookmarkId: 0,
     htmlId: 0,
     htmls: {},
     vars: {},
@@ -368,6 +370,37 @@ export async function walkTemplate(
           ctx.buffers['w:tc'].fInsertedText = true;
         }
         delete ctx.pendingLinkNode;
+      }
+
+      // If a bookmark was generated, replace the parent `w:r` node with
+      // the bookmarks node
+      if (
+        ctx.pendingBookmarkNodeSet &&
+        !nodeOut._fTextNode &&
+        nodeOut._tag === 'w:r'
+      ) {
+        if (ctx.pendingBookmarkNodeSet.length !== 3) {
+          logger.debug('Incorrect bookmark node set');
+        } else {
+          const bookmarkNodeSet = ctx.pendingBookmarkNodeSet;
+          const parent = nodeOut._parent;
+          if (parent) {
+            parent._children.pop();
+            bookmarkNodeSet[0]._parent = parent;
+            parent._children.push(bookmarkNodeSet[0]);
+            bookmarkNodeSet[1]._parent = parent;
+            parent._children.push(bookmarkNodeSet[1]);
+            bookmarkNodeSet[2]._parent = parent;
+            parent._children.push(bookmarkNodeSet[2]);
+
+            // Prevent containing paragraph or table row from being removed
+            ctx.buffers['w:p'].fInsertedText = true;
+            ctx.buffers['w:tr'].fInsertedText = true;
+            ctx.buffers['w:tc'].fInsertedText = true;
+          }
+        }
+
+        delete ctx.pendingBookmarkNodeSet;
       }
 
       // If a html page was generated, replace the parent `w:p` node with
@@ -700,6 +733,17 @@ const processCmd: CommandProcessor = async (
           ctx
         );
         if (pars != null) await processLink(ctx, pars);
+      }
+
+      // BOOKMARK <code>
+    } else if (cmdName === 'BOOKMARK') {
+      if (!isLoopExploring(ctx)) {
+        const pars: BookmarkPars | undefined = await runUserJsAndGetRaw(
+          data,
+          cmdRest,
+          ctx
+        );
+        if (pars != null) await processBookmark(ctx, pars);
       }
 
       // HTML <code>
@@ -1113,6 +1157,22 @@ const processLink = async (ctx: Context, linkPars: LinkPars) => {
     ]),
   ]);
   ctx.pendingLinkNode = link;
+};
+
+const processBookmark = async (ctx: Context, bookmarkPars: BookmarkPars) => {
+  const { name, label } = bookmarkPars;
+  ctx.bookmarkId += 1;
+  const id = String(ctx.bookmarkId);
+  // const relId = `bookmark${id}`;
+  const node = newNonTextNode;
+  const { textRunPropsNode } = ctx;
+  const bookmarkStart = node('w:bookmarkStart', { 'w:id': id, 'w:name': name });
+  const runNode = node('w:r', {}, [
+    textRunPropsNode || node('w:rPr', {}, [node('w:u', { 'w:val': 'single' })]),
+    node('w:t', {}, [newTextNode(label)]),
+  ]);
+  const bookmarkEnd = node('w:bookmarkEnd', { 'w:id': id });
+  ctx.pendingBookmarkNodeSet = [bookmarkStart, runNode, bookmarkEnd];
 };
 
 const processHtml = async (ctx: Context, data: string) => {
